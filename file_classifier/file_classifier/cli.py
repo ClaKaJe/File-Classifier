@@ -85,6 +85,8 @@ def create_parser() -> argparse.ArgumentParser:
                              help="Traiter les sous-répertoires")
     report_parser.add_argument("-o", "--output", help="Fichier de sortie (défaut: stdout)")
     report_parser.add_argument("--json", action="store_true", help="Sortie au format JSON")
+    report_parser.add_argument("--human-readable", action="store_true", 
+                             help="Inclure des tailles lisibles par l'homme dans la sortie JSON")
     
     # Commande 'config'
     config_parser = subparsers.add_parser("config", help="Gérer la configuration")
@@ -102,8 +104,15 @@ def create_parser() -> argparse.ArgumentParser:
     # Sous-commande 'config list'
     config_list_parser = config_subparsers.add_parser("list", help="Lister toutes les configurations")
     
+    # Commande 'history'
+    history_parser = subparsers.add_parser("history", help="Afficher l'historique des actions")
+    history_parser.add_argument("-c", "--count", type=int, help="Nombre d'actions à afficher (par défaut: toutes)")
+    history_parser.add_argument("-j", "--json", action="store_true", help="Format de sortie JSON")
+    
     # Commande 'undo'
-    undo_parser = subparsers.add_parser("undo", help="Annuler la dernière action")
+    undo_parser = subparsers.add_parser("undo", help="Annuler des actions")
+    undo_parser.add_argument("-c", "--count", type=int, help="Nombre d'actions à annuler (par défaut: 1)")
+    undo_parser.add_argument("-a", "--all", action="store_true", help="Annuler toutes les actions")
     
     return parser
 
@@ -340,7 +349,8 @@ def handle_report(args: argparse.Namespace) -> int:
         report = manager.generate_report(
             args.directory,
             recursive=args.recursive,
-            output_format=output_format
+            output_format=output_format,
+            human_readable=args.human_readable
         )
         
         # Écrire la sortie
@@ -413,6 +423,53 @@ def handle_config(args: argparse.Namespace) -> int:
         return 2
 
 
+def handle_history(args: argparse.Namespace) -> int:
+    """Gère la commande 'history'.
+    
+    Args:
+        args: Arguments de la ligne de commande.
+        
+    Returns:
+        Code de retour (0 pour succès, autre pour erreur).
+    """
+    try:
+        manager = FileManager()
+        history = manager.get_action_history(args.count)
+        
+        if not history:
+            print("Aucune action dans l'historique.")
+            return 0
+        
+        # Écrire la sortie
+        if args.json:
+            import json
+            print(json.dumps(history, indent=4))
+        else:
+            print(f"Historique des actions ({len(history)} actions):")
+            print("-" * 80)
+            for action in history:
+                # Formater l'affichage selon le type d'action
+                if action["type"] == "move":
+                    print(f"{action['id']} | {action['timestamp']} | DÉPLACEMENT: {action['source']} → {action['destination']}")
+                elif action["type"] == "rename":
+                    src_name = Path(action["source"]).name
+                    dest_name = Path(action["destination"]).name
+                    print(f"{action['id']} | {action['timestamp']} | RENOMMAGE: {src_name} → {dest_name}")
+                elif action["type"] == "delete":
+                    print(f"{action['id']} | {action['timestamp']} | SUPPRESSION: {action['source']}")
+                else:
+                    print(f"{action['id']} | {action['timestamp']} | {action['type']}: {action['source']} → {action['destination']}")
+            print("-" * 80)
+            print("Utilisez 'file-classifier undo -c N' pour annuler les N dernières actions")
+            print("Utilisez 'file-classifier undo -a' pour annuler toutes les actions")
+        
+        return 0
+    
+    except Exception as e:
+        logging.exception(f"Erreur lors de la récupération de l'historique: {e}")
+        return 2
+
+
 def handle_undo(args: argparse.Namespace) -> int:
     """Gère la commande 'undo'.
     
@@ -424,17 +481,55 @@ def handle_undo(args: argparse.Namespace) -> int:
     """
     try:
         manager = FileManager()
-        success = manager.undo_last_action()
+        
+        # Déterminer le nombre d'actions à annuler
+        count = None if args.all else args.count
+        
+        # Si on annule toutes les actions ou plusieurs actions, montrer l'historique d'abord
+        if args.all or (args.count and args.count > 1):
+            history = manager.get_action_history(count)
+            if not history:
+                print("Aucune action dans l'historique.")
+                return 0
+                
+            print(f"Les actions suivantes vont être annulées ({len(history)} actions):")
+            print("-" * 80)
+            for action in history:
+                # Formater l'affichage selon le type d'action
+                if action["type"] == "move":
+                    print(f"{action['id']} | {action['timestamp']} | DÉPLACEMENT: {action['source']} → {action['destination']}")
+                elif action["type"] == "rename":
+                    src_name = Path(action["source"]).name
+                    dest_name = Path(action["destination"]).name
+                    print(f"{action['id']} | {action['timestamp']} | RENOMMAGE: {src_name} → {dest_name}")
+                elif action["type"] == "delete":
+                    print(f"{action['id']} | {action['timestamp']} | SUPPRESSION: {action['source']}")
+                else:
+                    print(f"{action['id']} | {action['timestamp']} | {action['type']}: {action['source']} → {action['destination']}")
+            print("-" * 80)
+            
+            # Demander confirmation
+            confirm = input("Voulez-vous continuer ? (o/N) ")
+            if confirm.lower() not in ["o", "oui", "y", "yes"]:
+                print("Opération annulée.")
+                return 0
+        
+        success = manager.undo_last_action(count)
         
         if success:
-            print("Dernière action annulée avec succès.")
+            if args.all:
+                print("Toutes les actions ont été annulées avec succès.")
+            elif args.count and args.count > 1:
+                print(f"Les {args.count} dernières actions ont été annulées avec succès.")
+            else:
+                print("Dernière action annulée avec succès.")
             return 0
         else:
-            print("Impossible d'annuler la dernière action.")
+            print("Impossible d'annuler les actions demandées.")
             return 1
     
     except Exception as e:
-        logging.exception(f"Erreur lors de l'annulation: {e}")
+        logging.exception(f"Erreur lors de l'annulation des actions: {e}")
         return 2
 
 
@@ -464,6 +559,7 @@ def main() -> int:
         "clean": handle_clean,
         "report": handle_report,
         "config": handle_config,
+        "history": handle_history,
         "undo": handle_undo,
     }
     

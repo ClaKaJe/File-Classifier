@@ -1,25 +1,27 @@
-"""Module principal contenant les fonctionnalités de base de File-Classifier."""
+#!/usr/bin/env python3
+"""Module principal de l'outil de classement de fichiers."""
 
-import os
-import shutil
-import re
-import sqlite3
+import hashlib
 import json
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional, Generator, Any, Union
-
 import logging
+import os
+import re
+import shutil
+import sqlite3
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple, Union, Any
 
 from file_classifier.file_classifier.config import get_config_value, load_config
 from file_classifier.file_classifier.utils import (
-    get_file_type, 
-    get_file_size_category, 
-    get_file_date_category, 
-    safe_move, 
-    scan_files, 
-    calculate_file_hash, 
-    is_temp_file
+    get_file_date_category,
+    get_file_size_category,
+    get_file_type,
+    is_temp_file,
+    safe_move,
+    scan_files,
+    calculate_file_hash,
+    human_readable_size,
 )
 
 
@@ -393,13 +395,14 @@ class FileManager:
         return removed_files
     
     def generate_report(self, directory: Union[str, Path], recursive: bool = True,
-                       output_format: str = "text") -> str:
+                       output_format: str = "text", human_readable: bool = False) -> str:
         """Génère un rapport sur les fichiers d'un répertoire.
         
         Args:
             directory: Chemin du répertoire à traiter.
             recursive: Si True, traite également les sous-répertoires.
             output_format: Format de sortie ("text" ou "json").
+            human_readable: Si True et output_format est "json", inclut des tailles lisibles par l'homme.
             
         Returns:
             Le rapport généré.
@@ -423,6 +426,25 @@ class FileManager:
             "by_date": {}
         }
         
+        # Récupérer les catégories de tri depuis la configuration
+        sort_criteria = get_config_value("sort_criteria")
+        size_categories = sort_criteria["size"]
+        
+        # Initialiser les catégories de type
+        type_categories = ["images", "documents", "videos", "audio", "archives", "code", "text", "other"]
+        for category in type_categories:
+            stats["by_type"][category] = {"count": 0, "size": 0}
+        
+        # Initialiser les catégories de taille dans l'ordre
+        for category in sorted(size_categories.keys(), 
+                              key=lambda x: size_categories[x]):
+            stats["by_size"][category] = {"count": 0, "size": 0}
+        
+        # Initialiser les catégories de date dans un ordre chronologique
+        for category in ["today", "this_week", "this_month", "this_year", "older"]:
+            stats["by_date"][category] = {"count": 0, "size": 0}
+        
+        # Parcourir les fichiers
         for file_path in scan_files(directory, recursive):
             if file_path.is_file():
                 stats["total_files"] += 1
@@ -438,44 +460,68 @@ class FileManager:
                 
                 # Stats par taille
                 size_category = get_file_size_category(file_path)
-                if size_category not in stats["by_size"]:
-                    stats["by_size"][size_category] = {"count": 0, "size": 0}
                 stats["by_size"][size_category]["count"] += 1
                 stats["by_size"][size_category]["size"] += size
                 
                 # Stats par date
                 date_category = get_file_date_category(file_path)
-                if date_category not in stats["by_date"]:
-                    stats["by_date"][date_category] = {"count": 0, "size": 0}
                 stats["by_date"][date_category]["count"] += 1
                 stats["by_date"][date_category]["size"] += size
         
+        # Supprimer les catégories vides
+        stats["by_type"] = {k: v for k, v in stats["by_type"].items() if v["count"] > 0}
+        stats["by_size"] = {k: v for k, v in stats["by_size"].items() if v["count"] > 0}
+        stats["by_date"] = {k: v for k, v in stats["by_date"].items() if v["count"] > 0}
+        
         if output_format == "json":
+            # Ajouter des tailles lisibles par l'homme si demandé
+            if human_readable:
+                stats["total_size_hr"] = human_readable_size(stats["total_size"])
+                
+                for category, type_stats in stats["by_type"].items():
+                    type_stats["size_hr"] = human_readable_size(type_stats["size"])
+                
+                for category, size_stats in stats["by_size"].items():
+                    size_stats["size_hr"] = human_readable_size(size_stats["size"])
+                
+                for category, date_stats in stats["by_date"].items():
+                    date_stats["size_hr"] = human_readable_size(date_stats["size"])
+            
             return json.dumps(stats, indent=4)
         else:
             # Format texte
             lines = [
                 f"Rapport pour {directory}",
                 f"Total des fichiers: {stats['total_files']}",
-                f"Taille totale: {self._format_size(stats['total_size'])}",
+                f"Taille totale: {human_readable_size(stats['total_size'])}",
                 "",
                 "Par type:",
             ]
             
-            for file_type, type_stats in stats["by_type"].items():
-                lines.append(f"  {file_type}: {type_stats['count']} fichiers, {self._format_size(type_stats['size'])}")
+            # Trier les types par nombre de fichiers (décroissant)
+            sorted_types = sorted(stats["by_type"].items(), key=lambda x: x[1]["count"], reverse=True)
+            for file_type, type_stats in sorted_types:
+                lines.append(f"  {file_type}: {type_stats['count']} fichiers, {human_readable_size(type_stats['size'])}")
             
             lines.append("")
             lines.append("Par taille:")
             
-            for size_category, size_stats in stats["by_size"].items():
-                lines.append(f"  {size_category}: {size_stats['count']} fichiers, {self._format_size(size_stats['size'])}")
+            # Conserver l'ordre des catégories de taille
+            size_order = ["tiny", "small", "medium", "large", "huge"]
+            sorted_sizes = sorted(stats["by_size"].items(), 
+                                 key=lambda x: size_order.index(x[0]) if x[0] in size_order else 999)
+            for size_category, size_stats in sorted_sizes:
+                lines.append(f"  {size_category}: {size_stats['count']} fichiers, {human_readable_size(size_stats['size'])}")
             
             lines.append("")
             lines.append("Par date:")
             
-            for date_category, date_stats in stats["by_date"].items():
-                lines.append(f"  {date_category}: {date_stats['count']} fichiers, {self._format_size(date_stats['size'])}")
+            # Conserver l'ordre chronologique des catégories de date
+            date_order = ["today", "this_week", "this_month", "this_year", "older"]
+            sorted_dates = sorted(stats["by_date"].items(), 
+                                 key=lambda x: date_order.index(x[0]) if x[0] in date_order else 999)
+            for date_category, date_stats in sorted_dates:
+                lines.append(f"  {date_category}: {date_stats['count']} fichiers, {human_readable_size(date_stats['size'])}")
             
             return "\n".join(lines)
     
@@ -488,10 +534,7 @@ class FileManager:
         Returns:
             Chaîne formatée.
         """
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size_bytes < 1024 or unit == "TB":
-                return f"{size_bytes:.2f} {unit}"
-            size_bytes /= 1024
+        return human_readable_size(size_bytes)
     
     def _update_file_index(self, file_path: Path, file_hash: str) -> None:
         """Met à jour l'index des fichiers.
@@ -550,56 +593,119 @@ class FileManager:
         finally:
             conn.close()
     
-    def undo_last_action(self) -> bool:
-        """Annule la dernière action enregistrée.
+    def undo_last_action(self, count: Optional[int] = 1) -> bool:
+        """Annule la ou les dernières actions enregistrées.
+        
+        Args:
+            count: Nombre d'actions à annuler. Si None, annule toutes les actions.
+                  Si un entier positif, annule ce nombre d'actions.
         
         Returns:
-            True si l'annulation a réussi, False sinon.
+            True si au moins une annulation a réussi, False sinon.
         """
         conn = sqlite3.connect(str(self.db_path))
         cursor = conn.cursor()
         
         try:
-            # Récupérer la dernière action
-            cursor.execute(
-                "SELECT id, action_type, source, destination FROM actions ORDER BY timestamp DESC LIMIT 1"
-            )
-            result = cursor.fetchone()
+            # Si count est None, récupérer toutes les actions
+            if count is None:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM actions"
+                )
+                count = cursor.fetchone()[0]
+                if count == 0:
+                    logging.info("Aucune action à annuler.")
+                    return False
             
-            if not result:
+            # Récupérer les dernières actions, limitées par count
+            cursor.execute(
+                "SELECT id, action_type, source, destination FROM actions ORDER BY timestamp DESC LIMIT ?",
+                (count,)
+            )
+            actions = cursor.fetchall()
+            
+            if not actions:
                 logging.info("Aucune action à annuler.")
                 return False
             
-            action_id, action_type, source, destination = result
+            success = False
+            action_ids_to_delete = []
             
-            # Annuler l'action selon son type
-            if action_type == "move" or action_type == "rename":
-                # Déplacer le fichier de destination vers source
-                src_path = Path(source)
-                dest_path = Path(destination)
+            # Traiter chaque action à annuler
+            for action_id, action_type, source, destination in actions:
+                # Annuler l'action selon son type
+                if action_type == "move" or action_type == "rename":
+                    # Déplacer le fichier de destination vers source
+                    src_path = Path(source)
+                    dest_path = Path(destination)
+                    
+                    if dest_path.exists() and not src_path.exists():
+                        src_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(dest_path), str(src_path))
+                        logging.info(f"Action annulée: {dest_path} -> {src_path}")
+                        action_ids_to_delete.append(action_id)
+                        success = True
+                    else:
+                        logging.error(f"Impossible d'annuler l'action: fichier source ou destination invalide.")
                 
-                if dest_path.exists() and not src_path.exists():
-                    src_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(dest_path), str(src_path))
-                    logging.info(f"Action annulée: {dest_path} -> {src_path}")
-                else:
-                    logging.error(f"Impossible d'annuler l'action: fichier source ou destination invalide.")
-                    return False
+                elif action_type == "delete":
+                    # On ne peut pas restaurer un fichier supprimé
+                    logging.warning(f"Impossible d'annuler une suppression: {source}")
+                    action_ids_to_delete.append(action_id)  # Quand même supprimer l'action de l'historique
             
-            elif action_type == "delete":
-                # On ne peut pas restaurer un fichier supprimé
-                logging.warning(f"Impossible d'annuler une suppression: {source}")
-                return False
+            # Supprimer les actions annulées de l'historique
+            if action_ids_to_delete:
+                placeholders = ','.join('?' for _ in action_ids_to_delete)
+                cursor.execute(f"DELETE FROM actions WHERE id IN ({placeholders})", action_ids_to_delete)
+                conn.commit()
             
-            # Supprimer l'action de l'historique
-            cursor.execute("DELETE FROM actions WHERE id = ?", (action_id,))
-            conn.commit()
-            
-            return True
+            return success
         
         except (sqlite3.Error, FileNotFoundError, PermissionError) as e:
-            logging.error(f"Erreur lors de l'annulation de la dernière action: {e}")
+            logging.error(f"Erreur lors de l'annulation des actions: {e}")
             return False
         
+        finally:
+            conn.close()
+    
+    def get_action_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Récupère l'historique des actions.
+        
+        Args:
+            limit: Nombre maximum d'actions à récupérer. Si None, récupère toutes les actions.
+        
+        Returns:
+            Une liste de dictionnaires représentant les actions, du plus récent au plus ancien.
+        """
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        
+        try:
+            if limit:
+                cursor.execute(
+                    "SELECT id, action_type, source, destination, timestamp FROM actions ORDER BY timestamp DESC LIMIT ?",
+                    (limit,)
+                )
+            else:
+                cursor.execute(
+                    "SELECT id, action_type, source, destination, timestamp FROM actions ORDER BY timestamp DESC"
+                )
+            
+            actions = []
+            for action_id, action_type, source, destination, timestamp in cursor.fetchall():
+                actions.append({
+                    "id": action_id,
+                    "type": action_type,
+                    "source": source,
+                    "destination": destination,
+                    "timestamp": datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                })
+            
+            return actions
+            
+        except sqlite3.Error as e:
+            logging.error(f"Erreur lors de la récupération de l'historique: {e}")
+            return []
+            
         finally:
             conn.close() 

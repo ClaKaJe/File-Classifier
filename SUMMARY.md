@@ -16,7 +16,9 @@ File-Classifier/
 ├── docs/                             # Documentation
 │   ├── create_apt_repo.md            # Guide pour créer un dépôt APT
 │   ├── examples/                     # Exemples d'utilisation
-│   │   └── sort_by_type.md
+│   │   ├── sort_by_type.md
+│   │   ├── generate_report.md
+│   │   └── undo_actions.md
 │   └── man/                          # Pages de manuel
 │       └── file-classifier.1.md
 ├── file_classifier/                  # Code source principal
@@ -47,9 +49,10 @@ File-Classifier est un outil CLI de gestion et classement de fichiers qui offre 
 3. **Déplacement automatique** : Déplacer des fichiers selon des règles prédéfinies.
 4. **Détection de doublons** : Identifier les fichiers identiques par leur contenu.
 5. **Nettoyage** : Supprimer les fichiers temporaires ou obsolètes.
-6. **Génération de rapports** : Produire des rapports sur l'état des fichiers.
+6. **Génération de rapports** : Produire des rapports détaillés sur les fichiers, avec statistiques par type, taille et date, et option de tailles lisibles par l'homme.
 7. **Configuration** : Gérer les paramètres de configuration de l'outil.
-8. **Annulation** : Annuler la dernière action effectuée.
+8. **Historique** : Afficher l'historique complet ou partiel des actions effectuées.
+9. **Annulation** : Annuler une ou plusieurs actions précédentes, avec possibilité d'annuler toutes les actions en une seule commande.
 
 ## Interface en ligne de commande
 
@@ -60,9 +63,10 @@ L'interface CLI permet d'accéder à toutes les fonctionnalités via des sous-co
 - `move` : Déplacer des fichiers selon des règles
 - `duplicates` : Trouver les fichiers en double
 - `clean` : Nettoyer des fichiers (temporaires, anciens)
-- `report` : Générer un rapport sur les fichiers
+- `report` : Générer un rapport détaillé sur les fichiers, avec option de tailles lisibles
 - `config` : Gérer la configuration
-- `undo` : Annuler la dernière action
+- `history` : Afficher l'historique complet ou partiel des actions
+- `undo` : Annuler une ou plusieurs actions précédentes, ou toutes les actions
 
 ## Packaging et distribution
 

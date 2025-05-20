@@ -13,7 +13,8 @@ DEFAULT_CONFIG = {
     "sort_criteria": {
         "type": {
             "images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"],
-            "documents": [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".odt"],
+            "documents": [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt"],
+            "text": [".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml"],
             "videos": [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm"],
             "audio": [".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a"],
             "archives": [".zip", ".tar", ".gz", ".rar", ".7z"],

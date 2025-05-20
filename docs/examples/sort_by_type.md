@@ -88,7 +88,18 @@ file-classifier sort ~/Downloads -c date
 Si vous souhaitez annuler le tri, vous pouvez utiliser la commande `undo` :
 
 ```bash
+# Annuler la dernière action
 file-classifier undo
+
+# Annuler les 3 dernières actions
+file-classifier undo -c 3
+
+# Annuler toutes les actions
+file-classifier undo -a
 ```
 
-Cette commande va restaurer les fichiers à leur emplacement d'origine (si possible).
+Vous pouvez également consulter l'historique des actions avant d'annuler :
+
+```bash
+file-classifier history
+```

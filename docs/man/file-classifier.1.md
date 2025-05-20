@@ -108,7 +108,7 @@ Nettoie des fichiers selon différents critères.
 
 **file-classifier report** _DIRECTORY_ [*OPTIONS*]
 
-Génère un rapport sur les fichiers d'un répertoire.
+Génère un rapport sur les fichiers d'un répertoire, incluant le nombre de fichiers, la taille totale, et des statistiques par type, taille et date.
 
 ### Options
 
@@ -120,6 +120,9 @@ Génère un rapport sur les fichiers d'un répertoire.
 
 **--json**
 : Sortie au format JSON.
+
+**--human-readable**
+: Inclut des tailles lisibles par l'homme dans la sortie JSON (ex: "5.2 MB" au lieu de 5242880).
 
 ## config
 
@@ -140,9 +143,31 @@ Gère la configuration de l'outil.
 
 ## undo
 
-**file-classifier undo**
+**file-classifier undo** [*OPTIONS*]
 
-Annule la dernière action effectuée.
+Annule une ou plusieurs actions précédentes (déplacements, renommages).
+
+### Options
+
+**-c, --count** _N_
+: Annule les N dernières actions (par défaut: 1).
+
+**-a, --all**
+: Annule toutes les actions enregistrées.
+
+## history
+
+**file-classifier history** [*OPTIONS*]
+
+Affiche l'historique des actions effectuées.
+
+### Options
+
+**-c, --count** _N_
+: Limite le nombre d'actions affichées.
+
+**-j, --json**
+: Sortie au format JSON.
 
 # EXEMPLES
 

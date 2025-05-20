@@ -51,9 +51,33 @@ def get_file_type(file_path: Path) -> str:
     extension = file_path.suffix.lower()
     sort_criteria = get_config_value("sort_criteria")
     
+    # Vérifier si l'extension correspond à un type connu
     for file_type, extensions in sort_criteria["type"].items():
         if extension in extensions:
+            # Distinction spéciale entre text et documents
+            if file_type == "documents" and extension in [".txt", ".md", ".csv", ".log"]:
+                return "text"
             return file_type
+    
+    # Essayer de détecter le type MIME pour les fichiers sans extension reconnue
+    try:
+        mime_type = detect_mime_type(file_path)
+        if mime_type.startswith("image/"):
+            return "images"
+        elif mime_type.startswith("video/"):
+            return "videos"
+        elif mime_type.startswith("audio/"):
+            return "audio"
+        elif mime_type.startswith("text/"):
+            return "text"
+        elif mime_type in ["application/pdf", "application/msword", 
+                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+            return "documents"
+        elif mime_type in ["application/zip", "application/x-rar-compressed", 
+                          "application/x-tar", "application/gzip"]:
+            return "archives"
+    except:
+        pass
     
     return "other"
 

@@ -10,7 +10,7 @@ Outil CLI de gestion et classement de fichiers pour Linux.
 - **Détection de doublons** : identifier les fichiers identiques par leur contenu
 - **Nettoyage** : supprimer les fichiers temporaires ou obsolètes
 - **Génération de rapports** : produire des rapports sur l'état des fichiers
-- **Historique et annulation** : annuler la dernière action effectuée
+- **Historique et annulation** : consulter l'historique des actions et annuler une ou plusieurs actions effectuées
 
 ## Installation
 
@@ -61,7 +61,11 @@ file-classifier rename DIR PATTERN REPL  # Renommer des fichiers par lot
 file-classifier duplicates DIR1 [DIR2]   # Trouver les fichiers en double
 file-classifier clean DIR --temp         # Supprimer les fichiers temporaires
 file-classifier report DIR               # Générer un rapport sur les fichiers
+file-classifier report DIR --json --human-readable  # Rapport JSON avec tailles lisibles
+file-classifier history                  # Afficher l'historique des actions
 file-classifier undo                     # Annuler la dernière action
+file-classifier undo -c 3                # Annuler les 3 dernières actions
+file-classifier undo -a                  # Annuler toutes les actions
 ```
 
 ### Exemples
@@ -105,6 +109,32 @@ file-classifier report ~/Documents -r -o report.txt
 ```
 
 Cette commande génère un rapport détaillé sur tous les fichiers du dossier Documents et ses sous-dossiers.
+
+```bash
+file-classifier report ~/Documents --json --human-readable
+```
+
+Cette commande génère un rapport au format JSON avec des tailles lisibles par l'homme (ex: "5.2 MB").
+
+#### Gérer l'historique et annuler des actions
+
+```bash
+file-classifier history
+```
+
+Cette commande affiche l'historique complet des actions effectuées.
+
+```bash
+file-classifier undo -c 3
+```
+
+Cette commande annule les 3 dernières actions après confirmation.
+
+```bash
+file-classifier undo -a
+```
+
+Cette commande annule toutes les actions enregistrées après confirmation.
 
 ## Configuration
 
