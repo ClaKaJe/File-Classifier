@@ -31,13 +31,17 @@ sudo dnf install python3 python3-pip file-libs
 sudo pacman -S python python-pip file
 ```
 
-2. Téléchargez et installez File-Classifier :
+2. Téléchargez File-Classifier :
 
 ```bash
 # Téléchargement des sources
 git clone https://github.com/clakaje/file-classifier.git
 cd file-classifier
+```
 
+3. Installez File-Classifier :
+
+```bash
 # Installation
 python3 -m PyInstaller --onefile file_classifier_entry.py --name file-classifier
 sudo ./install.sh
