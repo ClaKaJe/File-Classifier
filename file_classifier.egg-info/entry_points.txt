@@ -1,0 +1,3 @@
+[console_scripts]
+file-classifier = file_classifier.file_classifier.cli:main
+

@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=file-classifier
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_test:
+	# Skip tests during build
+
+override_dh_auto_install:
+	dh_auto_install
+	# Installer la page de manuel
+	mkdir -p debian/file-classifier/usr/share/man/man1/
+	pandoc -s -t man docs/man/file-classifier.1.md -o debian/file-classifier/usr/share/man/man1/file-classifier.1
+	# Installer les exemples
+	mkdir -p debian/file-classifier/usr/share/doc/file-classifier/examples/
+	cp -r docs/examples/* debian/file-classifier/usr/share/doc/file-classifier/examples/ 
