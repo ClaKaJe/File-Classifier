@@ -14,40 +14,39 @@ Outil CLI de gestion et classement de fichiers pour Linux.
 
 ## Installation
 
-### Depuis les sources
+### Installation depuis les sources
+
+Cette méthode fonctionne sur tous les systèmes Linux et garantit une installation correcte.
+
+1. Installez d'abord les dépendances requises :
 
 ```bash
+# Pour Ubuntu/Debian
+sudo apt-get install python3 python3-pip libmagic1
+
+# Pour Fedora/RHEL/CentOS
+sudo dnf install python3 python3-pip file-libs
+
+# Pour Arch Linux
+sudo pacman -S python python-pip file
+```
+
+2. Téléchargez et installez File-Classifier :
+
+```bash
+# Téléchargement des sources
 git clone https://github.com/clakaje/file-classifier.git
 cd file-classifier
-pip install -e .
-```
 
-### Via pip
-
-```bash
-pip install file-classifier
-```
-
-### Exécutable autonome
-
-Vous pouvez créer un exécutable autonome qui ne nécessite pas d'installation Python :
-
-```bash
-# Installation de PyInstaller
-pip install pyinstaller
-
-# Création de l'exécutable
-pyinstaller --onefile file_classifier_entry.py --name file-classifier
-
-# L'exécutable se trouve dans le dossier dist/
-./dist/file-classifier --version
-```
-
-Pour installer l'exécutable sur votre système :
-
-```bash
-# Installation dans /usr/local/bin (nécessite les droits sudo)
+# Installation
+python3 -m PyInstaller --onefile file_classifier_entry.py --name file-classifier
 sudo ./install.sh
+```
+
+3. Vérifiez que l'installation a réussi :
+
+```bash
+file-classifier --version
 ```
 
 ## Utilisation

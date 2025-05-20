@@ -2,8 +2,9 @@ LICENSE.txt
 MANIFEST.in
 README.md
 setup.py
-docs/create_apt_repo.md
+docs/examples/generate_report.md
 docs/examples/sort_by_type.md
+docs/examples/undo_actions.md
 docs/man/file-classifier.1.md
 file_classifier.egg-info/PKG-INFO
 file_classifier.egg-info/SOURCES.txt
